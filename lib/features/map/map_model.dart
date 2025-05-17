@@ -2,7 +2,11 @@
 ///
 /// Определяет модели данных, описывающие карту здания: комнаты, этажи, переходы и т.д.
 /// Теперь поддерживает генерацию навигационного графа для поиска маршрута.
+/// import 'dart:math';
+
 library;
+
+import 'dart:math';
 
 class MapModel {
   final List<FloorModel> floors;
@@ -49,7 +53,7 @@ class MapModel {
           // Связываем только если комнаты достаточно близко друг к другу (например, < 20 метров)
           final dx = nodeA.x - nodeB.x;
           final dy = nodeA.y - nodeB.y;
-          final distance = (dx * dx + dy * dy).sqrt();
+          final distance = sqrt(dx * dx + dy * dy);
 
           if (distance < 20) {
             // Добавляем двунаправленное ребро

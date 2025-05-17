@@ -3,29 +3,6 @@ import 'package:navigation_diploma_client/features/networking/map_response.dart'
 import 'package:navigation_diploma_client/features/networking/route_model.dart';
 import 'package:navigation_diploma_client/features/map/map_model.dart';
 
-// Граф здания: узлы (точки) и рёбра (проходы между точками)
-class BuildingGraph {
-  final Map<int, GraphNode> nodes; // key: node id
-
-  BuildingGraph({required this.nodes});
-
-  GraphNode? getNode(int id) => nodes[id];
-
-  // Для примера: построение графа из карты здания
-  // (floorGraph — данные по комнатам/проходам на этаже, см. MapModel/FloorSchema)
-  static BuildingGraph fromFloorGraph(List<FloorSchema> floors) {
-    final nodes = <int, GraphNode>{};
-    for (final floor in floors) {
-      for (final node in floor.graphNodes) {
-        nodes[node.id] = node;
-      }
-    }
-    // Для связности между этажами — добавьте рёбра между лестницами/лифтами
-    // (оставлено для расширения)
-    return BuildingGraph(nodes: nodes);
-  }
-}
-
 // Узел графа
 class GraphNode {
   final int id;
