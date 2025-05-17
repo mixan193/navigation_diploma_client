@@ -1,16 +1,12 @@
-import 'package:navigation_diploma_client/features/map/map_model.dart';
+import 'package:get_it/get_it.dart';
+import '../networking/api_client.dart';
+import '../networking/map_response.dart';
 
-/// DAO для хранения и извлечения данных карты из локальной БД.
-/// В реальном коде должны быть методы работы с вашей базой данных (например, sqflite).
 class MapDao {
-  // Заглушка для возврата сохранённых данных (или null, если их нет)
-  Future<MapModel?> getCachedMap() async {
-    // Ваш код для чтения из локальной БД
-    return null;
-  }
+  final ApiClient _api = GetIt.instance<ApiClient>();
 
-  // Метод для сохранения новых данных в БД
-  Future<void> saveMapData(MapModel mapData) async {
-    // Ваш код для записи в локальную БД
+  /// Запрос карты здания по ID
+  Future<MapResponse> fetchMap(int buildingId) {
+    return _api.getBuildingMap(buildingId);
   }
 }

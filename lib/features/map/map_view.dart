@@ -1,58 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:navigation_diploma_client/features/map/map_controller.dart';
-import 'package:navigation_diploma_client/features/map/user_marker.dart';
-import 'package:navigation_diploma_client/features/map/map_model.dart';
+import 'package:navigation_diploma_client/di/service_locator.dart';
+import 'package:navigation_diploma_client/features/map/map_repository.dart';
+import 'package:navigation_diploma_client/features/networking/map_response.dart';
 
-/// map_view.dart
-///
-/// Основной виджет для отображения карты. Может использовать CustomPaint,
-/// Image, Canvas или любой другой подход для рисования плана здания.
-class MapView extends StatelessWidget {
-  const MapView({Key? key}) : super(key: key);
+class MapView extends StatefulWidget {
+  final int buildingId;
+  final Map<String, dynamic>? userPosition; // можно передавать x, y, z, floor
+  const MapView({Key? key, required this.buildingId, this.userPosition}) : super(key: key);
+
+  @override
+  _MapViewState createState() => _MapViewState();
+}
+
+class _MapViewState extends State<MapView> {
+  late Future<MapResponse> _mapFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapFuture = locator<MapRepository>().fetchMap(widget.buildingId);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<MapController>();
-    final floor = controller.currentFloor;
-
-    if (floor == null) {
-      return const Center(child: Text('No floor data'));
-    }
-
-    return GestureDetector(
-      // Обработка жестов для масштабирования/перемещения
-      onScaleUpdate: (details) {
-        // Для упрощения меняем масштаб и смещение.
-        // В реальном коде нужно аккуратно обрабатывать новые значения (min/max).
-        final newScale = controller.currentScale * details.scale;
-        controller.setScale(newScale.clamp(0.5, 5.0));
-
-        // Сдвиг offset
-        final dx = controller.offsetX + details.focalPointDelta.dx;
-        final dy = controller.offsetY + details.focalPointDelta.dy;
-        controller.setOffset(dx, dy);
+    return FutureBuilder<MapResponse>(
+      future: _mapFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Ошибка: ${snapshot.error}'));
+        }
+        final mapData = snapshot.data!;
+        return ListView(
+          padding: const EdgeInsets.all(8),
+          children: mapData.floors
+              .map((floor) => FloorCard(
+                    floor: floor,
+                    userPosition: widget.userPosition,
+                  ))
+              .toList(),
+        );
       },
-      child: Stack(
-        children: [
-          // Собственно "карта"
-          CustomPaint(
-            size: Size.infinite,
-            painter: _MapPainter(
-              floor: floor,
-              scale: controller.currentScale,
-              offsetX: controller.offsetX,
-              offsetY: controller.offsetY,
-            ),
-          ),
+    );
+  }
+}
 
-          // Маркер пользователя
-          // (его позицию можно брать из PositionEstimator или SensorManager,
-          //  но здесь просто заглушка — (x=200, y=150))
-          Positioned(
-            left: (200 * controller.currentScale + controller.offsetX) - 16,
-            top: (150 * controller.currentScale + controller.offsetY) - 16,
-            child: const UserMarker(),
+class FloorCard extends StatelessWidget {
+  final FloorSchema floor;
+  final Map<String, dynamic>? userPosition;
+  const FloorCard({Key? key, required this.floor, this.userPosition}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text('Этаж ${floor.floor}',
+                style: Theme.of(context).textTheme.titleLarge),
+          ),
+          AspectRatio(
+            aspectRatio: 1,
+            child: CustomPaint(
+              painter: FloorPainter(floor, userPosition),
+            ),
           ),
         ],
       ),
@@ -60,62 +75,83 @@ class MapView extends StatelessWidget {
   }
 }
 
-/// Небольшой CustomPainter для рисования комнат этажа.
-class _MapPainter extends CustomPainter {
-  final FloorModel floor;
-  final double scale;
-  final double offsetX;
-  final double offsetY;
-
-  _MapPainter({
-    required this.floor,
-    required this.scale,
-    required this.offsetX,
-    required this.offsetY,
-  });
+class FloorPainter extends CustomPainter {
+  final FloorSchema floor;
+  final Map<String, dynamic>? userPosition;
+  FloorPainter(this.floor, this.userPosition);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF888888)
+    // 1. Масштабируем полигон по min/max координатам
+    if (floor.polygon.isEmpty) return;
+
+    final xs = floor.polygon.map((pt) => pt[0]).toList();
+    final ys = floor.polygon.map((pt) => pt[1]).toList();
+    final minX = xs.reduce((a, b) => a < b ? a : b);
+    final maxX = xs.reduce((a, b) => a > b ? a : b);
+    final minY = ys.reduce((a, b) => a < b ? a : b);
+    final maxY = ys.reduce((a, b) => a > b ? a : b);
+
+    Offset mapPoint(double x, double y) {
+      // Нормализация в 0..1, затем масштаб на размер канваса
+      final nx = (x - minX) / (maxX - minX == 0 ? 1 : maxX - minX);
+      final ny = (y - minY) / (maxY - minY == 0 ? 1 : maxY - minY);
+      // Y инвертируем для привычной ориентации
+      return Offset(nx * size.width, (1 - ny) * size.height);
+    }
+
+    // Рисуем полигон этажа
+    final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 2
+      ..color = Colors.blue;
+    final polyPoints = floor.polygon
+        .map((pt) => mapPoint(pt[0], pt[1]))
+        .toList();
+    final path = Path()..addPolygon(polyPoints, true);
+    canvas.drawPath(path, borderPaint);
 
-    // Рисуем комнаты
-    for (final room in floor.rooms) {
-      // Допустим, каждая "комната" — это прямоугольник 50x50, центр в (room.x, room.y)
-      final rect = Rect.fromLTWH(
-        (room.x * scale + offsetX) - 25,
-        (room.y * scale + offsetY) - 25,
-        50 * scale,
-        50 * scale,
-      );
-      canvas.drawRect(rect, paint);
+    // Рисуем точки доступа
+    final apPaint = Paint()..style = PaintingStyle.fill..color = Colors.red;
+    for (var ap in floor.accessPoints) {
+      final p = mapPoint(ap.x, ap.y);
+      canvas.drawCircle(p, 5, apPaint);
+    }
 
-      // Подпись комнаты
-      final textSpan = TextSpan(
-        text: room.name,
-        style: const TextStyle(color: Colors.black, fontSize: 12),
-      );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      final offset = Offset(
-        rect.center.dx - (textPainter.width / 2),
-        rect.center.dy - (textPainter.height / 2),
-      );
-      textPainter.paint(canvas, offset);
+    // Рисуем пользователя, если есть позиция и нужный этаж
+    if (userPosition != null && userPosition!['floor'] == floor.floor) {
+      final double? ux = userPosition!['x']?.toDouble();
+      final double? uy = userPosition!['y']?.toDouble();
+      if (ux != null && uy != null) {
+        final userPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = Colors.green;
+        final up = mapPoint(ux, uy);
+        canvas.drawCircle(up, 9, userPaint);
+
+        // Тень/подсветка для защиты
+        final haloPaint = Paint()
+          ..color = Colors.green.withOpacity(0.2)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(up, 18, haloPaint);
+
+        // Текст "Вы"
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: 'Вы',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, up + Offset(10, -10));
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _MapPainter oldDelegate) {
-    return oldDelegate.scale != scale ||
-        oldDelegate.offsetX != offsetX ||
-        oldDelegate.offsetY != offsetY ||
-        oldDelegate.floor != floor;
-  }
+  bool shouldRepaint(covariant FloorPainter old) => true;
 }

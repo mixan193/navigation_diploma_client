@@ -1,5 +1,5 @@
-// sensor_debug_screen.dart (обновлённый)
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:navigation_diploma_client/features/sensors/sensor_manager.dart';
 import 'package:wifi_scan/wifi_scan.dart';
 
@@ -16,6 +16,7 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
   List<double>? _magnetometerValues;
   double? _barometricPressure;
   double? _relativeAltitude;
+  Position? _gps;
   List<WiFiAccessPoint>? _wifiAccessPoints = [];
 
   @override
@@ -23,6 +24,7 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
     super.initState();
     final manager = SensorManager();
 
+    // Подписки на потоки сенсоров
     manager.accelerometerStream.listen((event) {
       setState(() => _accelerometerValues = [event.x, event.y, event.z]);
     });
@@ -37,6 +39,9 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
         _barometricPressure = pressure;
         _relativeAltitude = manager.calculateRelativeAltitude(pressure);
       });
+    });
+    manager.gpsStream.listen((pos) {
+      setState(() => _gps = pos);
     });
 
     _startWifiScan(manager);
@@ -60,12 +65,19 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
             _buildSensorCard('Gyroscope', _gyroscopeValues),
             _buildSensorCard('Magnetometer', _magnetometerValues),
             _buildPressureCard(),
+            _buildGPSCard(),
             _buildWifiList(),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _startWifiScan(SensorManager()),
+        onPressed: () {
+          final manager = SensorManager();
+          _startWifiScan(manager);
+          // Сразу обновить GPS, если нужно
+          setState(() => _gps = manager.lastKnownGPS);
+        },
+        tooltip: "Обновить Wi-Fi и GPS",
         child: const Icon(Icons.refresh),
       ),
     );
@@ -79,7 +91,7 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
         title: Text(title),
         subtitle: Text(values != null
             ? values.map((e) => e.toStringAsFixed(2)).join(', ')
-            : 'Awaiting data...'),
+            : 'Нет данных...'),
       ),
     );
   }
@@ -91,8 +103,25 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
       child: ListTile(
         title: const Text('Barometer'),
         subtitle: Text(_barometricPressure != null
-            ? 'Pressure: ${_barometricPressure!.toStringAsFixed(2)} hPa\nEstimated Altitude: ${_relativeAltitude?.toStringAsFixed(2) ?? "-"} m'
-            : 'Awaiting data...'),
+            ? 'Давление: ${_barometricPressure!.toStringAsFixed(2)} hPa\nВысота: ${_relativeAltitude?.toStringAsFixed(2) ?? "-"} м'
+            : 'Нет данных...'),
+      ),
+    );
+  }
+
+  Widget _buildGPSCard() {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        title: const Text('GPS'),
+        subtitle: _gps != null
+            ? Text(
+                "lat: ${_gps!.latitude.toStringAsFixed(7)}, "
+                "lon: ${_gps!.longitude.toStringAsFixed(7)}\n"
+                "alt: ${_gps!.altitude.toStringAsFixed(2)} м, "
+                "точность: ${_gps!.accuracy.toStringAsFixed(1)} м")
+            : const Text('Нет данных...'),
       ),
     );
   }
@@ -106,11 +135,11 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
         children: _wifiAccessPoints != null && _wifiAccessPoints!.isNotEmpty
             ? _wifiAccessPoints!
                 .map((ap) => ListTile(
-                      title: Text(ap.ssid),
-                      subtitle: Text("RSSI: \${ap.level} dBm"),
+                      title: Text(ap.ssid.isNotEmpty ? ap.ssid : ap.bssid),
+                      subtitle: Text("RSSI: ${ap.level} dBm"),
                     ))
                 .toList()
-            : [const ListTile(title: Text('Scanning Wi-Fi...'))],
+            : [const ListTile(title: Text('Сканирование Wi-Fi...'))],
       ),
     );
   }

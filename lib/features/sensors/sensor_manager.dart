@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:navigation_diploma_client/features/networking/wifi_observation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:wifi_scan/wifi_scan.dart';
 
@@ -11,6 +12,13 @@ import 'magnetometer_service.dart';
 import 'barometer_service.dart';
 import 'gps_service.dart';
 import 'wifi_service.dart';
+
+// Подключаем upload-модель и апиклиент
+import 'package:navigation_diploma_client/features/networking/scan_upload.dart';
+import 'package:navigation_diploma_client/features/networking/api_client.dart';
+
+// Callback для передачи новых координат после отправки скана
+typedef PositionUpdateCallback = void Function(Map<String, dynamic>? userPosition);
 
 class SensorManager {
   static final SensorManager _instance = SensorManager._internal();
@@ -79,5 +87,54 @@ class SensorManager {
     _accelerometerService.dispose();
     _gyroscopeService.dispose();
     _magnetometerService.dispose();
+  }
+
+  /// --- Новый функционал: сбор всех сенсоров и отправка на сервер ---
+  Future<void> collectAndSendScan({
+    required int buildingId,
+    required int floor,
+    double? manualX,
+    double? manualY,
+    double? manualZ,
+    PositionUpdateCallback? onPositionUpdate,
+    String? token,
+  }) async {
+    // 1. Получаем актуальные данные
+    final gps = lastKnownGPS;
+    final pressure = lastKnownPressure;
+    final wifiList = await scanWifi();
+
+    // 2. Собираем список Wi-Fi наблюдений
+    final observations = wifiList.map((ap) => WiFiObservation(
+      ssid: ap.ssid ?? "",
+      bssid: ap.bssid,
+      rssi: ap.level,
+      frequency: ap.frequency,
+    )).toList();
+
+    // 3. Формируем ScanUpload
+    final scan = ScanUpload(
+      buildingId: buildingId,
+      floor: floor,
+      x: manualX, // Если пользователь вручную указывает x/y/z — можно подставить
+      y: manualY,
+      z: manualZ ?? (pressure != null ? calculateRelativeAltitude(pressure) : null),
+      yaw: null, // Если есть источник азимута/компаса — подставьте
+      pitch: null,
+      roll: null,
+      lat: gps?.latitude,
+      lon: gps?.longitude,
+      accuracy: gps?.accuracy,
+      observations: observations,
+    );
+
+    // 4. Отправляем скан на сервер
+    final api = ApiClient();
+    final userCoords = await api.uploadScanAndGetPosition(scan, token: token);
+
+    // 5. Обновляем позицию пользователя в UI через callback
+    if (onPositionUpdate != null) {
+      onPositionUpdate(userCoords);
+    }
   }
 }

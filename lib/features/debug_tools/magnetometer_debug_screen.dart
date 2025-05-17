@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:navigation_diploma_client/features/sensors/sensor_manager.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 class MagnetometerDebugScreen extends StatefulWidget {
   const MagnetometerDebugScreen({super.key});
@@ -9,14 +12,22 @@ class MagnetometerDebugScreen extends StatefulWidget {
 }
 
 class _MagnetometerDebugScreenState extends State<MagnetometerDebugScreen> {
+  StreamSubscription<MagnetometerEvent>? _sub;
   List<double>? _values;
 
   @override
   void initState() {
     super.initState();
     SensorManager().magnetometerStream.listen((event) {
+      if (!mounted) return;
       setState(() => _values = [event.x, event.y, event.z]);
     });
+  }
+
+@override
+  void dispose() {
+    _sub?.cancel();                   // очень важно!
+    super.dispose();
   }
 
   @override
