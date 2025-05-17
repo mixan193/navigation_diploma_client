@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:navigation_diploma_client/features/map/map_repository.dart';
 import 'package:navigation_diploma_client/features/networking/map_response.dart';
 import 'package:navigation_diploma_client/features/networking/route_model.dart';
-import 'package:navigation_diploma_client/features/map/map_response.dart';
 
 class RoutePreviewScreen extends StatefulWidget {
   final int buildingId;
@@ -23,7 +21,7 @@ class RoutePreviewScreen extends StatefulWidget {
 class _RoutePreviewScreenState extends State<RoutePreviewScreen> {
   @override
   Widget build(BuildContext context) {
-    final path = widget.route.path; // List<RoutePoint>
+    final path = widget.route.points; // List<RoutePoint>
     final floor = path.isNotEmpty ? path.first.floor : null;
 
     return Scaffold(
@@ -50,7 +48,7 @@ class _RoutePreviewScreenState extends State<RoutePreviewScreen> {
   }
 
   Widget _buildInfoCard() {
-    final points = widget.route.path;
+    final points = widget.route.points;
     final totalLength = widget.route.length; // в метрах
     final floors = points.map((e) => e.floor).toSet().join(", ");
 

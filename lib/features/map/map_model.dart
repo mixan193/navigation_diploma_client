@@ -97,6 +97,8 @@ class RoomModel {
     required this.x,
     required this.y,
   });
+
+  get z => null;
 }
 
 // ===== Навигационный граф =====

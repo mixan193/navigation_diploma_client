@@ -1,91 +1,87 @@
-import 'dart:collection';
-import 'package:navigation_diploma_client/features/networking/map_response.dart';
-import 'package:navigation_diploma_client/features/networking/route_model.dart';
-import 'package:navigation_diploma_client/features/map/map_model.dart';
+import 'dart:math';
+import 'package:collection/collection.dart';
+import 'package:navigation_diploma_client/models/route.dart';
+import 'package:navigation_diploma_client/models/room.dart';
 
-// Узел графа
-class GraphNode {
-  final int id;
-  final double x;
-  final double y;
-  final int floor;
-  final List<GraphEdge> edges; // Смежные рёбра
+class Pathfinder {
+  RouteModel findRoute(
+    RoomModel startRoom,
+    RoomModel endRoom,
+    Map<String, RoomModel> roomGraph,
+  ) {
+    final visited = <String>{};
+    final queue = PriorityQueue<_Node>((a, b) => a.cost.compareTo(b.cost));
+    queue.add(_Node(startRoom, 0, [startRoom]));
 
-  GraphNode({
-    required this.id,
-    required this.x,
-    required this.y,
-    required this.floor,
-    required this.edges,
-  });
-}
+    while (queue.isNotEmpty) {
+      final node = queue.removeFirst();
+      final room = node.room;
+      if (visited.contains(room.id)) continue;
+      visited.add(room.id);
 
-// Рёбра графа
-class GraphEdge {
-  final int toNodeId;
-  final double weight; // длина, стоимость прохода
+      if (room.id == endRoom.id) {
+        final points = node.path.map((room) => RoutePoint(
+          x: room.x,
+          y: room.y,
+          z: room.z,
+          floor: room.floorNumber,
+        )).toList();
 
-  GraphEdge({
-    required this.toNodeId,
-    required this.weight,
-  });
-}
+        double length = 0;
+        for (int i = 1; i < points.length; i++) {
+          length += _distance3d(points[i-1], points[i]);
+        }
 
-/// Поиск кратчайшего пути (Dijkstra) между двумя точками (nodeId)
-RouteModel findShortestRoute(
-    BuildingGraph graph, int startId, int endId) {
-  final dist = <int, double>{};
-  final prev = <int, int?>{};
-  final visited = <int>{};
-  final queue = PriorityQueue<_NodeWithDist>(
-      (a, b) => a.dist.compareTo(b.dist));
+        return RouteModel(
+          id: 'route_${startRoom.id}_${endRoom.id}',
+          points: points,
+          length: length,
+          z: points.isNotEmpty ? points.last.z : 0.0,
+          floorFrom: points.isNotEmpty ? points.first.floor : 0,
+          floorTo: points.isNotEmpty ? points.last.floor : 0,
+        );
+      }
 
-  // Инициализация
-  for (final nodeId in graph.nodes.keys) {
-    dist[nodeId] = double.infinity;
-    prev[nodeId] = null;
-  }
-  dist[startId] = 0.0;
-  queue.add(_NodeWithDist(startId, 0.0));
-
-  // Основной цикл
-  while (queue.isNotEmpty) {
-    final current = queue.removeFirst();
-    if (visited.contains(current.nodeId)) continue;
-    visited.add(current.nodeId);
-
-    if (current.nodeId == endId) break;
-
-    final node = graph.getNode(current.nodeId)!;
-    for (final edge in node.edges) {
-      final alt = dist[node.id]! + edge.weight;
-      if (alt < dist[edge.toNodeId]!) {
-        dist[edge.toNodeId] = alt;
-        prev[edge.toNodeId] = node.id;
-        queue.add(_NodeWithDist(edge.toNodeId, alt));
+      for (final neighborId in room.neighbors) {
+        final neighbor = roomGraph[neighborId];
+        if (neighbor != null && !visited.contains(neighbor.id)) {
+          queue.add(_Node(
+            neighbor,
+            node.cost + _distance3dRoom(room, neighbor),
+            List<RoomModel>.from(node.path)..add(neighbor),
+          ));
+        }
       }
     }
+    return RouteModel(
+      id: 'empty',
+      points: [],
+      length: 0,
+      z: 0,
+      floorFrom: 0,
+      floorTo: 0,
+    );
   }
-
-  // Восстановление пути
-  List<RoutePoint> path = [];
-  int? u = endId;
-  while (u != null && prev[u] != null) {
-    final node = graph.getNode(u)!;
-    path.insert(0, RoutePoint(x: node.x, y: node.y, floor: node.floor));
-    u = prev[u];
-  }
-  // Добавляем стартовую точку
-  final startNode = graph.getNode(startId)!;
-  path.insert(0, RoutePoint(x: startNode.x, y: startNode.y, floor: startNode.floor));
-
-  final totalLength = dist[endId] ?? 0.0;
-
-  return RouteModel(path: path, length: totalLength);
 }
 
-class _NodeWithDist {
-  final int nodeId;
-  final double dist;
-  _NodeWithDist(this.nodeId, this.dist);
+class _Node {
+  final RoomModel room;
+  final double cost;
+  final List<RoomModel> path;
+
+  _Node(this.room, this.cost, this.path);
+}
+
+double _distance3d(RoutePoint a, RoutePoint b) {
+  final dx = a.x - b.x;
+  final dy = a.y - b.y;
+  final dz = a.z - b.z;
+  return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+double _distance3dRoom(RoomModel a, RoomModel b) {
+  final dx = a.x - b.x;
+  final dy = a.y - b.y;
+  final dz = a.z - b.z;
+  return sqrt(dx * dx + dy * dy + dz * dz);
 }
