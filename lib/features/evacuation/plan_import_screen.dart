@@ -5,7 +5,7 @@ import 'package:navigation_diploma_client/features/evacuation/plan_parser.dart';
 import 'package:navigation_diploma_client/features/notes/poi_manager.dart';
 
 class PlanImportScreen extends StatefulWidget {
-  const PlanImportScreen({Key? key}) : super(key: key);
+  const PlanImportScreen({super.key});
 
   @override
   State<PlanImportScreen> createState() => _PlanImportScreenState();
@@ -54,7 +54,7 @@ class _PlanImportScreenState extends State<PlanImportScreen> {
   }
 
   void _clearPOIs() {
-    POIManager().clear();
+    POIManager().clearPOIs();
     setState(() {
       _lastStatus = "Все POI очищены.";
     });
@@ -79,14 +79,20 @@ class _PlanImportScreenState extends State<PlanImportScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton.icon(
-              icon: _importing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.upload_file),
-              label: Text(_importing ? "Импорт..." : "Выбрать файл плана (.json)"),
+              icon:
+                  _importing
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                      : const Icon(Icons.upload_file),
+              label: Text(
+                _importing ? "Импорт..." : "Выбрать файл плана (.json)",
+              ),
               onPressed: _importing ? null : _importPlan,
             ),
             const SizedBox(height: 20),
@@ -94,7 +100,10 @@ class _PlanImportScreenState extends State<PlanImportScreen> {
               Text(
                 _lastStatus!,
                 style: TextStyle(
-                  color: _lastStatus!.startsWith("Ошибка") ? Colors.red : Colors.green,
+                  color:
+                      _lastStatus!.startsWith("Ошибка")
+                          ? Colors.red
+                          : Colors.green,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,

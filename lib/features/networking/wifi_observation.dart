@@ -2,7 +2,7 @@ class WiFiObservation {
   final String ssid;
   final String bssid;
   final int rssi;
-  final int frequency;  // Сделали обязательным полем
+  final int frequency;
 
   WiFiObservation({
     required this.ssid,
@@ -11,12 +11,19 @@ class WiFiObservation {
     required this.frequency,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'ssid': ssid,
-      'bssid': bssid,
-      'rssi': rssi,
-      'frequency': frequency,
-    };
+  factory WiFiObservation.fromJson(Map<String, dynamic> json) {
+    return WiFiObservation(
+      ssid: json['ssid'] as String,
+      bssid: json['bssid'] as String,
+      rssi: json['rssi'] as int,
+      frequency: json['frequency'] as int,
+    );
   }
+
+  Map<String, dynamic> toJson() => {
+        'ssid': ssid,
+        'bssid': bssid,
+        'rssi': rssi,
+        'frequency': frequency,
+      };
 }

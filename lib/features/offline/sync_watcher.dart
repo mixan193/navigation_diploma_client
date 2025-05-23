@@ -5,23 +5,17 @@ import 'package:navigation_diploma_client/features/offline/offline_manager.dart'
 class SyncWatcher {
   static final SyncWatcher _instance = SyncWatcher._internal();
   factory SyncWatcher() => _instance;
-  SyncWatcher._internal();
+  StreamSubscription<List<ConnectivityResult>>? _subscription;
 
-  StreamSubscription<ConnectivityResult>? _sub;
-
-  /// Запуск автонаблюдателя (вызывайте в main.dart или при старте приложения)
-  void start() {
-    _sub?.cancel();
-    _sub = Connectivity().onConnectivityChanged.listen((result) async {
-      if (result != ConnectivityResult.none) {
-        // Есть сеть — пробуем синхронизировать сканы
-        await OfflineManager().sync();
+  SyncWatcher._internal() {
+    _subscription = Connectivity().onConnectivityChanged.listen((results) {
+      if (results.isNotEmpty && results.first != ConnectivityResult.none) {
+        OfflineManager().uploadPendingScans();
       }
     });
   }
 
-  void stop() {
-    _sub?.cancel();
-    _sub = null;
+  void dispose() {
+    _subscription?.cancel();
   }
 }

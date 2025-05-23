@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:collection/collection.dart';
-import 'package:navigation_diploma_client/models/route.dart';
 import 'package:navigation_diploma_client/models/room.dart';
+import 'package:navigation_diploma_client/features/networking/route_model.dart';
 
 class Pathfinder {
   RouteModel findRoute(
@@ -20,23 +20,21 @@ class Pathfinder {
       visited.add(room.id);
 
       if (room.id == endRoom.id) {
-        final points = node.path.map((room) => RoutePoint(
-          x: room.x,
-          y: room.y,
-          z: room.z,
-          floor: room.floorNumber,
-        )).toList();
-
+        final points =
+            node.path
+                .map(
+                  (r) =>
+                      RoutePoint(x: r.x, y: r.y, z: r.z, floor: r.floorNumber),
+                )
+                .toList();
         double length = 0;
         for (int i = 1; i < points.length; i++) {
-          length += _distance3d(points[i-1], points[i]);
+          length += _distance3d(points[i - 1], points[i]);
         }
-
         return RouteModel(
           id: 'route_${startRoom.id}_${endRoom.id}',
           points: points,
           length: length,
-          z: points.isNotEmpty ? points.last.z : 0.0,
           floorFrom: points.isNotEmpty ? points.first.floor : 0,
           floorTo: points.isNotEmpty ? points.last.floor : 0,
         );
@@ -45,19 +43,20 @@ class Pathfinder {
       for (final neighborId in room.neighbors) {
         final neighbor = roomGraph[neighborId];
         if (neighbor != null && !visited.contains(neighbor.id)) {
-          queue.add(_Node(
-            neighbor,
-            node.cost + _distance3dRoom(room, neighbor),
-            List<RoomModel>.from(node.path)..add(neighbor),
-          ));
+          queue.add(
+            _Node(
+              neighbor,
+              node.cost + _distance3dRoom(room, neighbor),
+              List<RoomModel>.from(node.path)..add(neighbor),
+            ),
+          );
         }
       }
     }
     return RouteModel(
       id: 'empty',
       points: [],
-      length: 0,
-      z: 0,
+      length: 0.0,
       floorFrom: 0,
       floorTo: 0,
     );

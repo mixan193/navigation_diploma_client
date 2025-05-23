@@ -1,16 +1,11 @@
+import 'package:navigation_diploma_client/di/service_locator.dart';
+import 'package:navigation_diploma_client/features/networking/api_client.dart';
 import 'package:navigation_diploma_client/features/networking/map_response.dart';
-// Допустим, у нас есть локальный DAO или сетевые запросы
 
-import '../../features/networking/api_client.dart';
-
-/// map_repository.dart
-///
-/// Содержит логику загрузки/кэширования данных карты из сети или локального хранилища.
 class MapRepository {
-  final ApiClient _api;
+  final ApiClient _api = locator<ApiClient>();
 
-  MapRepository(this._api);
-
-  Future<MapResponse> fetchMap(int buildingId) =>
-      _api.getBuildingMap(buildingId);
+  Future<MapResponse> fetchMap(int buildingId) {
+    return _api.getBuildingMap(buildingId);
+  }
 }

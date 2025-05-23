@@ -5,11 +5,7 @@ class Permissions {
     return RoleManager().isAdmin || RoleManager().isCalibrator;
   }
 
-  static bool canAccessDebugTools() {
+  static bool canAdminister() {
     return RoleManager().isAdmin;
-  }
-
-  static bool canSendScan() {
-    return true; // Все могут сканировать
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:navigation_diploma_client/features/offline/offline_manager.dart';
 
 class SyncStatusWidget extends StatefulWidget {
-  const SyncStatusWidget({Key? key}) : super(key: key);
+  const SyncStatusWidget({super.key});
 
   @override
   State<SyncStatusWidget> createState() => _SyncStatusWidgetState();
@@ -67,17 +67,23 @@ class _SyncStatusWidgetState extends State<SyncStatusWidget> {
             if (pending > 0)
               ElevatedButton.icon(
                 onPressed: syncing ? null : _syncNow,
-                icon: syncing
-                    ? const SizedBox(
-                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
+                icon:
+                    syncing
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.sync),
                 label: Text(syncing ? 'Синхронизация...' : 'Синхронизировать'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(50, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                 ),
               ),
             IconButton(

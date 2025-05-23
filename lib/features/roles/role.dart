@@ -10,7 +10,7 @@ extension UserRoleExt on UserRole {
       case UserRole.user:
         return "Пользователь";
       case UserRole.calibrator:
-        return "Калибровщик";
+        return "Калибратор";
       case UserRole.admin:
         return "Администратор";
     }

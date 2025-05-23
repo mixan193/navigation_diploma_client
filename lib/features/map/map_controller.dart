@@ -4,22 +4,22 @@ import 'package:navigation_diploma_client/features/networking/map_response.dart'
 
 class MapController with ChangeNotifier {
   final MapRepository _repo;
-  MapResponse? _map;
+  MapResponse? _mapData;
   bool _loading = false;
 
   MapController(this._repo);
 
+  MapResponse? get mapData => _mapData;
+  bool get loading => _loading;
+
   Future<void> loadMap(int buildingId) async {
-    _loading = true; notifyListeners();
+    _loading = true;
+    notifyListeners();
     try {
-      _map = await _repo.fetchMap(buildingId);
-    } catch (e) {
-      // обработка ошибок
+      _mapData = await _repo.fetchMap(buildingId);
     } finally {
-      _loading = false; notifyListeners();
+      _loading = false;
+      notifyListeners();
     }
   }
-
-  MapResponse? get map => _map;
-  bool get isLoading => _loading;
 }

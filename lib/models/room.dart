@@ -5,7 +5,7 @@ class RoomModel {
   final double y;
   final double z;
   final int floorNumber;
-  final List<String> neighbors; // Список id соседних комнат
+  final List<String> neighbors;
 
   RoomModel({
     required this.id,
@@ -17,15 +17,14 @@ class RoomModel {
     required this.neighbors,
   });
 
-  // Пример сериализации/десериализации, если нужно
   factory RoomModel.fromJson(Map<String, dynamic> json) {
     return RoomModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: json['id'],
+      name: json['name'],
       x: (json['x'] as num).toDouble(),
       y: (json['y'] as num).toDouble(),
-      z: (json['z'] as num).toDouble(),
-      floorNumber: json['floorNumber'] as int,
+      z: (json['z'] as num?)?.toDouble() ?? 0.0,
+      floorNumber: json['floorNumber'],
       neighbors: List<String>.from(json['neighbors'] ?? []),
     );
   }

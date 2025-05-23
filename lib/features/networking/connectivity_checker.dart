@@ -8,7 +8,10 @@ class ConnectivityChecker {
   ConnectivityChecker() {
     // Слушаем изменения
     _connectivity.onConnectivityChanged.listen((result) {
-      _controller.add(result != ConnectivityResult.none);
+      // result всегда List<ConnectivityResult>
+      _controller.add(
+        result.isNotEmpty && result.first != ConnectivityResult.none,
+      );
     });
   }
 

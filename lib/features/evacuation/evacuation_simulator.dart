@@ -1,72 +1,37 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:navigation_diploma_client/features/map/map_model.dart';
 import 'package:navigation_diploma_client/features/notes/poi_manager.dart';
 import 'package:navigation_diploma_client/features/routing/pathfinder.dart';
-import 'package:navigation_diploma_client/models/route.dart';
 import 'package:navigation_diploma_client/models/room.dart';
+import 'package:navigation_diploma_client/models/route.dart' as model_route;
 
 class EvacuationSimulator extends StatefulWidget {
-  final MapModel mapModel;
-  final String startRoomNodeId;
+  final List<RoomModel> rooms;
+  final String startRoomId;
 
   const EvacuationSimulator({
-    Key? key,
-    required this.mapModel,
-    required this.startRoomNodeId,
-  }) : super(key: key);
+    super.key,
+    required this.rooms,
+    required this.startRoomId,
+  });
 
   @override
   State<EvacuationSimulator> createState() => _EvacuationSimulatorState();
 }
 
 class _EvacuationSimulatorState extends State<EvacuationSimulator> {
-  RouteModel? routeToExit;
+  model_route.RouteModel? routeToExit;
   POI? nearestExit;
-
-  late final Map<String, RoomModel> roomGraph;
 
   @override
   void initState() {
     super.initState();
-    roomGraph = _buildRoomGraph(widget.mapModel);
     _calculateEvacuationRoute();
   }
 
-  Map<String, RoomModel> _buildRoomGraph(MapModel mapModel) {
-    final Map<String, RoomModel> result = {};
-    for (final floor in mapModel.floors) {
-      for (final room in floor.rooms) {
-        result[room.id] = room;
-      }
-    }
-    return result;
-  }
-
-  RouteModel findShortestRoute(
-    Map<String, RoomModel> graph,
-    String fromNodeId,
-    String toNodeId,
-  ) {
-    final pathfinder = Pathfinder();
-    final startRoom = graph[fromNodeId];
-    final endRoom = graph[toNodeId];
-    if (startRoom == null || endRoom == null) {
-      return RouteModel(
-        id: 'empty',
-        points: [],
-        length: 0.0,
-        z: 0.0,
-        floorFrom: 0,
-        floorTo: 0,
-      );
-    }
-    return pathfinder.findRoute(startRoom, endRoom, graph);
-  }
-
   void _calculateEvacuationRoute() {
-    final exits = POIManager().pois.where((poi) => poi.type == POIType.exit).toList();
-
+    final roomMap = {for (var r in widget.rooms) r.id: r};
+    final exits =
+        POIManager().pois.where((poi) => poi.type == POIType.exit).toList();
     if (exits.isEmpty) {
       setState(() {
         routeToExit = null;
@@ -76,28 +41,23 @@ class _EvacuationSimulatorState extends State<EvacuationSimulator> {
     }
 
     double? minLen;
-    RouteModel? bestRoute;
+    model_route.RouteModel? bestRoute;
     POI? bestExit;
+    final pathfinder = Pathfinder();
 
     for (final exit in exits) {
-      RoomModel? nearestRoom;
-      double minDist = double.infinity;
-      for (final room in roomGraph.values) {
-        final dx = room.x - exit.x;
-        final dy = room.y - exit.y;
-        final dz = room.z - (exit.z ?? 0.0);
-        final dist = sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestRoom = room;
-        }
-      }
-      if (nearestRoom == null) continue;
-
-      final route = findShortestRoute(roomGraph, widget.startRoomNodeId, nearestRoom.id);
+      final exitRoom = widget.rooms.firstWhere(
+        (r) => r.floorNumber == exit.floor,
+        orElse: () => widget.rooms.first,
+      );
+      final route = pathfinder.findRoute(
+        roomMap[widget.startRoomId]!,
+        exitRoom,
+        roomMap,
+      );
       if (minLen == null || route.length < minLen) {
         minLen = route.length;
-        bestRoute = route;
+        bestRoute = route as model_route.RouteModel?;
         bestExit = exit;
       }
     }
@@ -118,86 +78,96 @@ class _EvacuationSimulatorState extends State<EvacuationSimulator> {
             icon: const Icon(Icons.refresh),
             tooltip: "Пересчитать",
             onPressed: _calculateEvacuationRoute,
-          )
+          ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: routeToExit == null
-            ? const Center(child: Text("Нет доступных выходов или маршрутов"))
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (nearestExit != null)
+        child:
+            routeToExit == null
+                ? const Center(
+                  child: Text("Нет доступных выходов или маршрутов"),
+                )
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (nearestExit != null)
+                      Card(
+                        child: ListTile(
+                          leading: Icon(nearestExit!.type.icon),
+                          title: Text("Ближайший выход: ${nearestExit!.name}"),
+                          subtitle: Text(
+                            "Этаж: ${nearestExit!.floor}, x: ${nearestExit!.x.toStringAsFixed(1)}, y: ${nearestExit!.y.toStringAsFixed(1)}",
+                          ),
+                        ),
+                      ),
                     Card(
-                      child: ListTile(
-                        leading: Icon(nearestExit!.type.icon),
-                        title: Text("Ближайший выход: ${nearestExit!.name}"),
-                        subtitle: Text(
-                          "Этаж: ${nearestExit!.floor}, x: ${nearestExit!.x.toStringAsFixed(1)}, y: ${nearestExit!.y.toStringAsFixed(1)}",
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Text(
+                          "Длина маршрута: ${routeToExit!.length.toStringAsFixed(1)} м\n"
+                          "Число точек: ${routeToExit!.points.length}",
+                          style: const TextStyle(fontSize: 15),
                         ),
                       ),
                     ),
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Text(
-                        "Длина маршрута: ${routeToExit!.length.toStringAsFixed(1)} м\n"
-                        "Число точек: ${routeToExit!.points.length}",
-                        style: const TextStyle(fontSize: 15),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: EvacuationRouteMap(
+                        rooms: widget.rooms,
+                        route: routeToExit!,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: EvacuationRouteMap(
-                      mapModel: widget.mapModel,
-                      route: routeToExit!,
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }
 }
 
 class EvacuationRouteMap extends StatelessWidget {
-  final MapModel mapModel;
-  final RouteModel route;
+  final List<RoomModel> rooms;
+  final model_route.RouteModel route;
 
   const EvacuationRouteMap({
-    Key? key,
-    required this.mapModel,
+    super.key,
+    required this.rooms,
     required this.route,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final int floor = route.points.isNotEmpty ? route.points.first.floor : mapModel.floors.first.floorNumber;
-    final floorModel = mapModel.floors.firstWhere((f) => f.floorNumber == floor);
+    final int floor =
+        route.points.isNotEmpty
+            ? route.points.first.floor
+            : rooms.first.floorNumber;
+    final roomsOnFloor = rooms.where((f) => f.floorNumber == floor).toList();
 
     return AspectRatio(
       aspectRatio: 1,
-      child: CustomPaint(
-        painter: _EvacuationRoutePainter(floorModel, route),
-      ),
+      child: CustomPaint(painter: _EvacuationRoutePainter(roomsOnFloor, route)),
     );
   }
 }
 
 class _EvacuationRoutePainter extends CustomPainter {
-  final FloorModel floor;
-  final RouteModel route;
+  final List<RoomModel> rooms;
+  final model_route.RouteModel route;
 
-  _EvacuationRoutePainter(this.floor, this.route);
+  _EvacuationRoutePainter(this.rooms, this.route);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paintRoom = Paint()..color = Colors.blue..style = PaintingStyle.fill;
-    for (final room in floor.rooms) {
-      final p = Offset(room.x / 100 * size.width, (1 - room.y / 100) * size.height);
+    final paintRoom =
+        Paint()
+          ..color = Colors.blue
+          ..style = PaintingStyle.fill;
+    for (final room in rooms) {
+      final p = Offset(
+        room.x / 100 * size.width,
+        (1 - room.y / 100) * size.height,
+      );
       canvas.drawCircle(p, 5, paintRoom);
       final textStyle = TextStyle(color: Colors.blue[700], fontSize: 10);
       final tp = TextPainter(
@@ -210,15 +180,22 @@ class _EvacuationRoutePainter extends CustomPainter {
     }
 
     if (route.points.isNotEmpty) {
-      final routePaint = Paint()
-        ..color = Colors.deepOrange
-        ..strokeWidth = 4
-        ..style = PaintingStyle.stroke;
+      final routePaint =
+          Paint()
+            ..color = Colors.deepOrange
+            ..strokeWidth = 4
+            ..style = PaintingStyle.stroke;
 
-      final points = route.points
-          .where((p) => p.floor == floor.floorNumber)
-          .map((p) => Offset(p.x / 100 * size.width, (1 - p.y / 100) * size.height))
-          .toList();
+      final points =
+          route.points
+              .where((p) => p.floor == rooms.first.floorNumber)
+              .map(
+                (p) => Offset(
+                  p.x / 100 * size.width,
+                  (1 - p.y / 100) * size.height,
+                ),
+              )
+              .toList();
 
       if (points.length > 1) {
         final routePath = Path()..moveTo(points.first.dx, points.first.dy);
@@ -228,8 +205,14 @@ class _EvacuationRoutePainter extends CustomPainter {
         canvas.drawPath(routePath, routePaint);
       }
       if (points.isNotEmpty) {
-        final startPaint = Paint()..color = Colors.green..style = PaintingStyle.fill;
-        final endPaint = Paint()..color = Colors.red..style = PaintingStyle.fill;
+        final startPaint =
+            Paint()
+              ..color = Colors.green
+              ..style = PaintingStyle.fill;
+        final endPaint =
+            Paint()
+              ..color = Colors.red
+              ..style = PaintingStyle.fill;
         canvas.drawCircle(points.first, 9, startPaint);
         canvas.drawCircle(points.last, 9, endPaint);
       }

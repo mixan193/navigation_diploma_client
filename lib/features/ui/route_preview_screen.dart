@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:navigation_diploma_client/features/networking/map_response.dart';
 import 'package:navigation_diploma_client/features/networking/route_model.dart';
@@ -8,11 +10,11 @@ class RoutePreviewScreen extends StatefulWidget {
   final MapResponse mapData;
 
   const RoutePreviewScreen({
-    Key? key,
+    super.key,
     required this.buildingId,
     required this.route,
     required this.mapData,
-  }) : super(key: key);
+  });
 
   @override
   State<RoutePreviewScreen> createState() => _RoutePreviewScreenState();
@@ -21,13 +23,11 @@ class RoutePreviewScreen extends StatefulWidget {
 class _RoutePreviewScreenState extends State<RoutePreviewScreen> {
   @override
   Widget build(BuildContext context) {
-    final path = widget.route.points; // List<RoutePoint>
-    final floor = path.isNotEmpty ? path.first.floor : null;
-
+    final path = widget.route.points;
+    final floor =
+        path.isNotEmpty ? path.first.floor : widget.mapData.floors.first.floor;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Маршрут'),
-      ),
+      appBar: AppBar(title: const Text('Маршрут')),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -49,7 +49,7 @@ class _RoutePreviewScreenState extends State<RoutePreviewScreen> {
 
   Widget _buildInfoCard() {
     final points = widget.route.points;
-    final totalLength = widget.route.length; // в метрах
+    final totalLength = widget.route.length;
     final floors = points.map((e) => e.floor).toSet().join(", ");
 
     return Card(
@@ -78,27 +78,22 @@ class _RoutePreviewScreenState extends State<RoutePreviewScreen> {
 class _RouteMapView extends StatelessWidget {
   final MapResponse mapData;
   final List<RoutePoint> path;
-  final int? floor;
+  final int floor;
 
   const _RouteMapView({
-    Key? key,
     required this.mapData,
     required this.path,
     required this.floor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final floorData = mapData.floors.firstWhere(
-      (f) => f.floor == floor,
-      orElse: () => mapData.floors.first,
-    );
+    final floorData = mapData.floors.firstWhere((f) => f.floor == floor);
 
-    return AspectRatio(
-      aspectRatio: 1,
-      child: CustomPaint(
-        painter: _RoutePainter(floorData, path),
-      ),
+    return SizedBox(
+      width: 300,
+      height: 300,
+      child: CustomPaint(painter: _RoutePainter(floorData, path)),
     );
   }
 }
@@ -111,41 +106,45 @@ class _RoutePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Вычисление масштаба полигона
     if (floor.polygon.isEmpty) return;
-
     final xs = floor.polygon.map((pt) => pt[0]).toList();
     final ys = floor.polygon.map((pt) => pt[1]).toList();
-    final minX = xs.reduce((a, b) => a < b ? a : b);
-    final maxX = xs.reduce((a, b) => a > b ? a : b);
-    final minY = ys.reduce((a, b) => a < b ? a : b);
-    final maxY = ys.reduce((a, b) => a > b ? a : b);
 
     Offset mapPoint(double x, double y) {
-      final nx = (x - minX) / (maxX - minX == 0 ? 1 : maxX - minX);
-      final ny = (y - minY) / (maxY - minY == 0 ? 1 : maxY - minY);
+      final nx =
+          (x - xs.reduce(min)) /
+          (xs.reduce(max) - xs.reduce(min) == 0
+              ? 1
+              : xs.reduce(max) - xs.reduce(min));
+      final ny =
+          (y - ys.reduce(min)) /
+          (ys.reduce(max) - ys.reduce(min) == 0
+              ? 1
+              : ys.reduce(max) - ys.reduce(min));
       return Offset(nx * size.width, (1 - ny) * size.height);
     }
 
-    // Рисуем полигон этажа
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = Colors.blue;
-    final polyPoints = floor.polygon.map((pt) => mapPoint(pt[0], pt[1])).toList();
+    final borderPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.blue;
+    final polyPoints =
+        floor.polygon.map((pt) => mapPoint(pt[0], pt[1])).toList();
     final pathPoly = Path()..addPolygon(polyPoints, true);
     canvas.drawPath(pathPoly, borderPaint);
 
-    // Рисуем маршрут
     if (path.isNotEmpty) {
-      final routePaint = Paint()
-        ..color = Colors.deepOrange
-        ..strokeWidth = 4
-        ..style = PaintingStyle.stroke;
-      final points = path
-          .where((p) => p.floor == floor.floor)
-          .map((p) => mapPoint(p.x, p.y))
-          .toList();
+      final routePaint =
+          Paint()
+            ..color = Colors.deepOrange
+            ..strokeWidth = 4
+            ..style = PaintingStyle.stroke;
+      final points =
+          path
+              .where((p) => p.floor == floor.floor)
+              .map((p) => mapPoint(p.x, p.y))
+              .toList();
       if (points.length > 1) {
         final routePath = Path()..moveTo(points.first.dx, points.first.dy);
         for (final pt in points.skip(1)) {
@@ -153,10 +152,15 @@ class _RoutePainter extends CustomPainter {
         }
         canvas.drawPath(routePath, routePaint);
       }
-      // Отметить начало/конец
       if (points.isNotEmpty) {
-        final startPaint = Paint()..color = Colors.green..style = PaintingStyle.fill;
-        final endPaint = Paint()..color = Colors.red..style = PaintingStyle.fill;
+        final startPaint =
+            Paint()
+              ..color = Colors.green
+              ..style = PaintingStyle.fill;
+        final endPaint =
+            Paint()
+              ..color = Colors.red
+              ..style = PaintingStyle.fill;
         canvas.drawCircle(points.first, 9, startPaint);
         canvas.drawCircle(points.last, 9, endPaint);
       }
@@ -164,5 +168,5 @@ class _RoutePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RoutePainter oldDelegate) => true;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

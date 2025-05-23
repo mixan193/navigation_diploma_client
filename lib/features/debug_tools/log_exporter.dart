@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:navigation_diploma_client/features/sensors/sensor_manager.dart';
 
 class LogExporter extends StatefulWidget {
-  const LogExporter({Key? key}) : super(key: key);
+  const LogExporter({super.key});
 
   @override
   State<LogExporter> createState() => _LogExporterState();
@@ -25,7 +25,8 @@ class _LogExporterState extends State<LogExporter> {
 
     try {
       final now = DateTime.now();
-      final filename = "navigation_log_${now.toIso8601String().replaceAll(':', '-')}.txt";
+      final filename =
+          "navigation_log_${now.toIso8601String().replaceAll(':', '-')}.txt";
       final dir = await getTemporaryDirectory();
       final path = "${dir.path}/$filename";
 
@@ -83,13 +84,17 @@ class _LogExporterState extends State<LogExporter> {
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              icon: _exporting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.download),
+              icon:
+                  _exporting
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                      : const Icon(Icons.download),
               label: Text(_exporting ? "Экспорт..." : "Выгрузить логи"),
               onPressed: _exporting ? null : _exportLogs,
             ),

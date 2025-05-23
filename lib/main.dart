@@ -8,5 +8,4 @@ Future<void> main() async {
   await SensorManager().initialize();
   setupLocator();
   runApp(const IndoorNavigationApp());
-
 }

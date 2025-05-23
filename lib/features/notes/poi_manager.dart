@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Модель точки интереса (POI)
 class POI {
   final String id;
   final String name;
@@ -21,37 +20,26 @@ class POI {
   });
 }
 
-/// Типы POI (можно расширять под задачи)
 enum POIType { exit, elevator, stairs, wc, custom }
 
-extension POITypeExt on POIType {
-  String get label {
-    switch (this) {
-      case POIType.exit: return "Выход";
-      case POIType.elevator: return "Лифт";
-      case POIType.stairs: return "Лестница";
-      case POIType.wc: return "Туалет";
-      case POIType.custom: return "Другое";
-    }
-  }
-
+extension POITypeIcon on POIType {
   IconData get icon {
     switch (this) {
-      case POIType.exit: return Icons.exit_to_app;
-      case POIType.elevator: return Icons.elevator;
-      case POIType.stairs: return Icons.stairs;
-      case POIType.wc: return Icons.wc;
-      case POIType.custom: return Icons.star;
+      case POIType.exit:
+        return Icons.exit_to_app;
+      case POIType.elevator:
+        return Icons.elevator;
+      case POIType.stairs:
+        return Icons.stairs;
+      case POIType.wc:
+        return Icons.wc;
+      default:
+        return Icons.place;
     }
   }
 }
 
-/// Менеджер для хранения и работы с POI
 class POIManager extends ChangeNotifier {
-  static final POIManager _instance = POIManager._internal();
-  factory POIManager() => _instance;
-  POIManager._internal();
-
   final List<POI> _pois = [];
 
   List<POI> get pois => List.unmodifiable(_pois);
@@ -62,22 +50,12 @@ class POIManager extends ChangeNotifier {
   }
 
   void removePOI(String id) {
-    _pois.removeWhere((p) => p.id == id);
+    _pois.removeWhere((e) => e.id == id);
     notifyListeners();
   }
 
-  void clear() {
+  void clearPOIs() {
     _pois.clear();
     notifyListeners();
-  }
-
-  List<POI> poisOnFloor(int floor) => _pois.where((p) => p.floor == floor).toList();
-
-  POI? findById(String id) {
-    try {
-      return _pois.firstWhere((p) => p.id == id);
-    } catch (e) {
-      return null;
-    }
   }
 }

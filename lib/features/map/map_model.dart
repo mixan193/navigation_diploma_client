@@ -1,29 +1,19 @@
-/// map_model.dart
-///
-/// Определяет модели данных, описывающие карту здания: комнаты, этажи, переходы и т.д.
-/// Теперь поддерживает генерацию навигационного графа для поиска маршрута.
-/// import 'dart:math';
-
-library;
-
 import 'dart:math';
+import 'package:navigation_diploma_client/models/room.dart';
 
 class MapModel {
   final List<FloorModel> floors;
-  // Например, могут быть дополнительные поля, ссылки на POI, маршруты и т.п.
 
   MapModel({
     required this.floors,
   });
 
-  /// Собирает полный навигационный граф здания для поиска маршрута.
-  /// Каждый RoomModel становится узлом графа.
   BuildingGraph toNavigationGraph() {
     final Map<int, GraphNode> nodes = {};
     int nodeCounter = 0;
     final Map<String, int> roomIdToNodeId = {};
 
-    // 1. Преобразуем все комнаты всех этажей в узлы графа
+    // 1. Все комнаты -> узлы графа
     for (final floor in floors) {
       for (final room in floor.rooms) {
         nodeCounter++;
@@ -31,6 +21,7 @@ class MapModel {
           id: nodeCounter,
           x: room.x,
           y: room.y,
+          z: room.z,
           floor: floor.floorNumber,
           edges: [],
         );
@@ -38,25 +29,20 @@ class MapModel {
       }
     }
 
-    // 2. Генерируем рёбра: простейшая логика — связываем соседние комнаты на этаже
+    // 2. Рёбра на одном этаже (если расстояние < 20 м)
     for (final floor in floors) {
       for (int i = 0; i < floor.rooms.length; i++) {
         final roomA = floor.rooms[i];
         final nodeAId = roomIdToNodeId["${floor.floorNumber}_${roomA.id}"]!;
         final nodeA = nodes[nodeAId]!;
-
         for (int j = i + 1; j < floor.rooms.length; j++) {
           final roomB = floor.rooms[j];
           final nodeBId = roomIdToNodeId["${floor.floorNumber}_${roomB.id}"]!;
           final nodeB = nodes[nodeBId]!;
-
-          // Связываем только если комнаты достаточно близко друг к другу (например, < 20 метров)
           final dx = nodeA.x - nodeB.x;
           final dy = nodeA.y - nodeB.y;
           final distance = sqrt(dx * dx + dy * dy);
-
           if (distance < 20) {
-            // Добавляем двунаправленное ребро
             nodeA.edges.add(GraphEdge(toNodeId: nodeB.id, weight: distance));
             nodeB.edges.add(GraphEdge(toNodeId: nodeA.id, weight: distance));
           }
@@ -64,14 +50,30 @@ class MapModel {
       }
     }
 
-    // 3. Связываем одинаковые комнаты на разных этажах (например, лестницы/лифты)
-    // Можно расширить по вашему сценарию
+    // 3. Связи между этажами (с одинаковыми id комнат)
+    for (final entry in roomIdToNodeId.entries) {
+      final parts = entry.key.split('_');
+      final floorNum = int.parse(parts[0]);
+      final roomId = parts[1];
+      for (final otherEntry in roomIdToNodeId.entries) {
+        final otherParts = otherEntry.key.split('_');
+        final otherFloor = int.parse(otherParts[0]);
+        final otherRoomId = otherParts[1];
+        if (roomId == otherRoomId && floorNum != otherFloor) {
+          final nodeA = nodes[entry.value]!;
+          final nodeB = nodes[otherEntry.value]!;
+          final dz = (nodeA.z - nodeB.z).abs();
+          final distance = sqrt(pow(nodeA.x - nodeB.x, 2) + pow(nodeA.y - nodeB.y, 2) + pow(dz, 2));
+          nodeA.edges.add(GraphEdge(toNodeId: nodeB.id, weight: distance));
+          nodeB.edges.add(GraphEdge(toNodeId: nodeA.id, weight: distance));
+        }
+      }
+    }
 
     return BuildingGraph(nodes: nodes);
   }
 }
 
-/// Модель этажа
 class FloorModel {
   final int floorNumber;
   final String floorName;
@@ -84,49 +86,9 @@ class FloorModel {
   });
 }
 
-/// Модель комнаты
-class RoomModel {
-  final String id;
-  final String name;
-  final double x; // Координаты комнаты на плане
-  final double y;
-
-  RoomModel({
-    required this.id,
-    required this.name,
-    required this.x,
-    required this.y,
-  });
-
-  get z => null;
-}
-
-// ===== Навигационный граф =====
-class BuildingGraph {
-  final Map<int, GraphNode> nodes; // key: node id
-  BuildingGraph({required this.nodes});
-  GraphNode? getNode(int id) => nodes[id];
-}
-
-class GraphNode {
-  final int id;
-  final double x;
-  final double y;
-  final int floor;
-  final List<GraphEdge> edges;
-
-  GraphNode({
-    required this.id,
-    required this.x,
-    required this.y,
-    required this.floor,
-    required this.edges,
-  });
-}
-
 class GraphEdge {
   final int toNodeId;
-  final double weight; // длина, стоимость прохода
+  final double weight;
 
   GraphEdge({
     required this.toNodeId,
@@ -134,5 +96,25 @@ class GraphEdge {
   });
 }
 
-// Для поиска маршрута используйте метод:
-// final graph = yourMapModel.toNavigationGraph();
+class GraphNode {
+  final int id;
+  final double x;
+  final double y;
+  final double z;
+  final int floor;
+  final List<GraphEdge> edges;
+
+  GraphNode({
+    required this.id,
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.floor,
+    required this.edges,
+  });
+}
+
+class BuildingGraph {
+  final Map<int, GraphNode> nodes;
+  BuildingGraph({required this.nodes});
+}

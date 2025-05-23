@@ -11,16 +11,25 @@ class FloorSchema {
     required this.accessPoints,
   });
 
-  factory FloorSchema.fromJson(Map<String, dynamic> json) => FloorSchema(
-    floor: json['floor'],
-    polygon: List<List<double>>.from(
-      (json['polygon'] as List).map((row) => List<double>.from((row as List).map((x) => (x as num).toDouble())))
-    ),
-    accessPoints: (json['access_points'] as List)
-      .map((e) => AccessPointOut.fromJson(e))
-      .toList(),
-  );
+  factory FloorSchema.fromJson(Map<String, dynamic> json) {
+    return FloorSchema(
+      floor: json['floor'] as int,
+      polygon: (json['polygon'] as List<dynamic>)
+          .map((e) => (e as List).map((x) => (x as num).toDouble()).toList())
+          .toList(),
+      accessPoints: (json['accessPoints'] as List<dynamic>)
+          .map((e) => AccessPointOut.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'floor': floor,
+        'polygon': polygon,
+        'accessPoints': accessPoints.map((e) => e.toJson()).toList(),
+      };
 }
+
 class MapResponse {
   final int buildingId;
   final String buildingName;
@@ -34,10 +43,21 @@ class MapResponse {
     required this.floors,
   });
 
-  factory MapResponse.fromJson(Map<String, dynamic> json) => MapResponse(
-    buildingId:    json['building_id'],
-    buildingName:  json['building_name'],
-    address:       json['address'],
-    floors:        (json['floors'] as List).map((e) => FloorSchema.fromJson(e)).toList(),
-  );
+  factory MapResponse.fromJson(Map<String, dynamic> json) {
+    return MapResponse(
+      buildingId: json['buildingId'] as int,
+      buildingName: json['buildingName'] as String,
+      address: json['address'] as String,
+      floors: (json['floors'] as List<dynamic>)
+          .map((e) => FloorSchema.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'buildingId': buildingId,
+        'buildingName': buildingName,
+        'address': address,
+        'floors': floors.map((e) => e.toJson()).toList(),
+      };
 }

@@ -16,7 +16,6 @@ class GPSDebugScreenState extends State<GPSDebugScreen> {
   @override
   void initState() {
     super.initState();
-
     SensorManager().gpsStream.listen(
       (position) {
         setState(() => _position = position);
