@@ -26,19 +26,22 @@ class ScanUpload {
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
-  Map<String, dynamic> toJson() => {
-        'buildingId': buildingId,
-        'floor': floor,
-        'x': x,
-        'y': y,
-        'z': z,
-        'yaw': yaw,
-        'pitch': pitch,
-        'roll': roll,
-        'lat': lat,
-        'lon': lon,
-        'accuracy': accuracy,
-        'observations': observations.map((e) => e.toJson()).toList(),
-        'timestamp': timestamp.toIso8601String(),
-      };
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{
+      'building_id': buildingId,
+      'floor': floor,
+      'observations': observations.map((e) => e.toJson()).toList(),
+      'timestamp': timestamp.toIso8601String(),
+    };
+    if (x != null) data['x'] = x;
+    if (y != null) data['y'] = y;
+    if (z != null) data['z'] = z;
+    if (yaw != null) data['yaw'] = yaw;
+    if (pitch != null) data['pitch'] = pitch;
+    if (roll != null) data['roll'] = roll;
+    if (lat != null) data['lat'] = lat;
+    if (lon != null) data['lon'] = lon;
+    if (accuracy != null) data['accuracy'] = accuracy;
+    return data;
+  }
 }

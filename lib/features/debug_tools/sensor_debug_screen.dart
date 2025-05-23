@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:navigation_diploma_client/features/sensors/sensor_manager.dart';
-import 'package:wifi_scan/wifi_scan.dart';
 
 class SensorDebugScreen extends StatefulWidget {
   const SensorDebugScreen({super.key});
@@ -18,26 +17,12 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
   double? _barometricPressure;
   double? _relativeAltitude;
   Position? _gps;
-  List<WiFiAccessPoint>? _wifiAccessPoints = [];
 
   StreamSubscription? _accelSub;
   StreamSubscription? _gyroSub;
   StreamSubscription? _magnetSub;
   StreamSubscription? _baroSub;
   StreamSubscription? _gpsSub;
-
-  double? _hybridAltitude;
-  double? _hybridAccuracy;
-
-  void _updateHybridAltitude() {
-    final manager = SensorManager();
-    final alt = manager.getHybridAltitude();
-    setState(() {
-      _hybridAltitude = alt;
-      // Для примера: точность берём из GPS, если есть, иначе null
-      _hybridAccuracy = _gps?.accuracy;
-    });
-  }
 
   @override
   void initState() {
@@ -60,15 +45,7 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
     });
     _gpsSub = manager.gpsStream.listen((pos) {
       setState(() => _gps = pos);
-      _updateHybridAltitude();
     });
-
-    manager.scanWifi().then((result) {
-      setState(() => _wifiAccessPoints = result);
-      _updateHybridAltitude();
-    });
-    // Первичная инициализация гибридной высоты
-    _updateHybridAltitude();
   }
 
   @override
@@ -95,24 +72,8 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
             _buildSensorCard('Magnetometer', _magnetometerValues),
             _buildPressureCard(),
             _buildGPSCard(),
-            _buildHybridAltitudeCard(),
-            _buildWifiList(),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final manager = SensorManager();
-          manager.scanWifi().then((result) {
-            setState(() {
-              _wifiAccessPoints = result;
-              _gps = manager.lastKnownGPS;
-              _updateHybridAltitude();
-            });
-          });
-        },
-        tooltip: "Обновить Wi-Fi и GPS",
-        child: const Icon(Icons.refresh),
       ),
     );
   }
@@ -160,45 +121,6 @@ class _SensorDebugScreenState extends State<SensorDebugScreen> {
                   "alt: ${_gps!.altitude.toStringAsFixed(2)} м, точность: ±${_gps!.accuracy.toStringAsFixed(1)} м",
                 )
                 : const Text('Нет данных...'),
-      ),
-    );
-  }
-
-  Widget _buildHybridAltitudeCard() {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        title: const Text('Гибридная высота'),
-        subtitle: Text(
-          _hybridAltitude != null
-              ? 'Высота: ${_hybridAltitude!.toStringAsFixed(2)} м' +
-                  (_hybridAccuracy != null
-                      ? ' (±${_hybridAccuracy!.toStringAsFixed(1)} м)'
-                      : '')
-              : 'Нет данных...',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWifiList() {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ExpansionTile(
-        title: const Text('Wi-Fi Networks (RSSI)'),
-        children:
-            _wifiAccessPoints != null && _wifiAccessPoints!.isNotEmpty
-                ? _wifiAccessPoints!
-                    .map(
-                      (ap) => ListTile(
-                        title: Text(ap.ssid.isNotEmpty ? ap.ssid : ap.bssid),
-                        subtitle: Text("RSSI: ${ap.level} dBm"),
-                      ),
-                    )
-                    .toList()
-                : [const ListTile(title: Text('Сканирование Wi-Fi...'))],
       ),
     );
   }
